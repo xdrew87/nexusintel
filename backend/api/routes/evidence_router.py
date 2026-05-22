@@ -42,12 +42,15 @@ async def upload_evidence(
 ):
     """Upload evidence file with path traversal protection"""
     
-    # Validate investigation_id to prevent path traversal and unsafe path characters
-    if not investigation_id or not re.fullmatch(r"[A-Za-z0-9_-]+", investigation_id):
+    # Validate investigation_id to prevent path traversal and unsafe path characters.
+    # Use match.group(0) so the path receives the regex-validated value, not raw user input.
+    id_match = re.fullmatch(r"[A-Za-z0-9_-]+", investigation_id or "")
+    if not id_match:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid investigation ID"
         )
+    validated_investigation_id = id_match.group(0)
     
     file_content = await file.read()
     file_size = len(file_content)
@@ -74,13 +77,14 @@ async def upload_evidence(
             detail=f"Invalid filename: {str(e)}"
         )
     
-    # Use UUID as secondary filename to prevent collisions and further sanitize
-    unique_filename = f"{uuid.uuid4()}_{sanitized_filename}"
-    
+    # Build stored filename from UUID + re-sanitized extension only (no user-controlled data in path).
+    # The original sanitized_filename is returned to callers for display but not used in file I/O.
+    safe_ext = re.sub(r"[^a-zA-Z0-9]", "", file_ext)
+    unique_filename = f"{uuid.uuid4()}.{safe_ext}" if safe_ext else str(uuid.uuid4())
+
     # Create upload directory under a trusted fixed root and enforce containment
     base_upload_dir = Path("backend/uploads").resolve()
-    safe_investigation_id = investigation_id
-    upload_dir = (base_upload_dir / safe_investigation_id).resolve()
+    upload_dir = (base_upload_dir / validated_investigation_id).resolve()
 
     try:
         upload_dir.relative_to(base_upload_dir)
