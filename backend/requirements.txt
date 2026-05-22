@@ -7,5 +7,5 @@ python-dotenv==1.0.0
 httpx==0.25.1
 aiofiles==23.2.1
 python-multipart==0.0.6
-pytest==7.4.3
+pytest==9.0.3
 pytest-asyncio==0.21.1
