@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.backend
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=sqlite:///./nexusintel.db
+      - DEBUG=false
+      - ENVIRONMENT=production
+    volumes:
+      - ./backend:/app/backend
+      - ./backend/uploads:/app/backend/uploads
+      - ./backend/evidence:/app/backend/evidence
+    command: python3 -m uvicorn api.main:app --host 0.0.0.0 --port 8000
+    networks:
+      - nexusintel
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_URL=http://localhost:8000/api/v1
+    volumes:
+      - ./frontend/src:/app/src
+    command: npm run dev
+    networks:
+      - nexusintel
+    depends_on:
+      - backend
+
+networks:
+  nexusintel:
+    driver: bridge
+
+volumes:
+  backend_data:
