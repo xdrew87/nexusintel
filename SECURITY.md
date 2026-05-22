@@ -4,7 +4,7 @@
 
 If you discover a security vulnerability in NexusIntel, please **do not** create a public GitHub issue. Instead:
 
-1. Email security concerns to: xdrew87@github.com (with "[NexusIntel Security]" in subject)
+1. Email security concerns to: xdrew87@osintintelligence.xyz (with "[NexusIntel Security]" in subject)
 2. Describe the vulnerability in detail
 3. Include steps to reproduce if applicable
 4. Allow 7 days for initial response
