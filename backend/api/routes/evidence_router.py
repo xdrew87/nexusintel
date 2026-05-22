@@ -33,6 +33,20 @@ def sanitize_filename(filename: str) -> str:
     return filename
 
 
+def sanitize_path_segment(value: str) -> str:
+    """Sanitize a single path segment to a strict allowlist."""
+    if not value:
+        raise ValueError("Path segment cannot be empty")
+
+    # Keep only safe characters for a directory name segment.
+    sanitized = re.sub(r"[^A-Za-z0-9_-]", "", value)
+
+    if not sanitized:
+        raise ValueError("Invalid path segment")
+
+    return sanitized
+
+
 @router.post("/{investigation_id}/upload", status_code=status.HTTP_201_CREATED)
 async def upload_evidence(
     investigation_id: str,
@@ -42,15 +56,14 @@ async def upload_evidence(
 ):
     """Upload evidence file with path traversal protection"""
     
-    # Validate investigation_id to prevent path traversal and unsafe path characters.
-    # Use match.group(0) so the path receives the regex-validated value, not raw user input.
-    id_match = re.fullmatch(r"[A-Za-z0-9_-]+", investigation_id or "")
-    if not id_match:
+    # Sanitize investigation_id before using it in any path expression.
+    try:
+        validated_investigation_id = sanitize_path_segment(investigation_id or "")
+    except ValueError:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid investigation ID"
         )
-    validated_investigation_id = id_match.group(0)
     
     file_content = await file.read()
     file_size = len(file_content)
