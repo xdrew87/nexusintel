@@ -5,7 +5,6 @@ from fastapi import APIRouter, Depends, File, UploadFile, HTTPException, status
 from sqlalchemy.orm import Session
 from core.database import get_db
 from core.config import settings
-import os
 import uuid
 import hashlib
 import re
@@ -90,38 +89,15 @@ async def upload_evidence(
             detail=f"Invalid filename: {str(e)}"
         )
     
-    # Build stored filename from UUID + re-sanitized extension only (no user-controlled data in path).
-    # The original sanitized_filename is returned to callers for display but not used in file I/O.
-    safe_ext = re.sub(r"[^a-zA-Z0-9]", "", file_ext)
-    unique_filename = f"{uuid.uuid4()}.{safe_ext}" if safe_ext else str(uuid.uuid4())
-
-    # Create upload directory under a trusted fixed root and enforce containment
+    # Store using only server-generated values — no user-controlled data in any path expression.
+    # investigation_id is validated above and returned in the response for the caller to associate
+    # with a database record; it is intentionally not used in the filesystem path.
     base_upload_dir = Path("backend/uploads").resolve()
-    upload_dir = (base_upload_dir / validated_investigation_id).resolve()
+    unique_filename = str(uuid.uuid4())
+    file_path = base_upload_dir / unique_filename
 
     try:
-        upload_dir.relative_to(base_upload_dir)
-    except ValueError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid investigation ID path"
-        )
-
-    upload_dir.mkdir(parents=True, exist_ok=True)
-
-    # Construct full path and verify it's within trusted uploads directory
-    file_path = (upload_dir / unique_filename).resolve()
-
-    try:
-        file_path.relative_to(base_upload_dir)
-    except ValueError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid file path"
-        )
-    
-    # Write file safely
-    try:
+        base_upload_dir.mkdir(parents=True, exist_ok=True)
         with open(file_path, "wb") as f:
             f.write(file_content)
     except Exception as e:
