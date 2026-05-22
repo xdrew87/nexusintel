@@ -7,5 +7,5 @@ python-dotenv
 httpx
 aiofiles
 python-multipart==0.0.27
-pytest=
+pytest
 pytest-asyncio
