@@ -8,6 +8,7 @@ from core.config import settings
 import os
 import uuid
 import hashlib
+import re
 from pathlib import Path
 
 router = APIRouter(prefix="/evidence")
@@ -41,8 +42,8 @@ async def upload_evidence(
 ):
     """Upload evidence file with path traversal protection"""
     
-    # Validate investigation_id to prevent path traversal
-    if '..' in investigation_id or '/' in investigation_id or '\\' in investigation_id:
+    # Validate investigation_id to prevent path traversal and unsafe path characters
+    if not investigation_id or not re.fullmatch(r"[A-Za-z0-9_-]+", investigation_id):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid investigation ID"
@@ -76,16 +77,26 @@ async def upload_evidence(
     # Use UUID as secondary filename to prevent collisions and further sanitize
     unique_filename = f"{uuid.uuid4()}_{sanitized_filename}"
     
-    # Create upload directory with absolute path to prevent escape
-    upload_dir = Path("backend/uploads") / investigation_id
-    upload_dir.mkdir(parents=True, exist_ok=True)
-    
-    # Construct full path and verify it's within the upload directory
-    file_path = upload_dir / unique_filename
-    
-    # Verify the resolved path is still within uploads directory
+    # Create upload directory under a trusted fixed root and enforce containment
+    base_upload_dir = Path("backend/uploads").resolve()
+    safe_investigation_id = investigation_id
+    upload_dir = (base_upload_dir / safe_investigation_id).resolve()
+
     try:
-        file_path.resolve().relative_to(upload_dir.resolve())
+        upload_dir.relative_to(base_upload_dir)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid investigation ID path"
+        )
+
+    upload_dir.mkdir(parents=True, exist_ok=True)
+
+    # Construct full path and verify it's within trusted uploads directory
+    file_path = (upload_dir / unique_filename).resolve()
+
+    try:
+        file_path.relative_to(base_upload_dir)
     except ValueError:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
